@@ -33,7 +33,9 @@ BEGIN FOR table_record IN (
         all_tables
     WHERE
         owner = 'HR'
-) LOOP DECLARE tabela_istnieje NUMBER;
+) LOOP;
+
+DECLARE tabela_istnieje NUMBER;
 
 BEGIN
 SELECT
