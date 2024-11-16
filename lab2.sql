@@ -1,0 +1,239 @@
+-- Zad 1
+DROP TABLE COUNTRIES CASCADE CONSTRAINTS;
+
+DROP TABLE DEPARTMENTS CASCADE CONSTRAINTS;
+
+DROP TABLE EMPLOYEES CASCADE CONSTRAINTS;
+
+DROP TABLE JOB_HISTORY CASCADE CONSTRAINTS;
+
+DROP TABLE JOBS CASCADE CONSTRAINTS;
+
+DROP TABLE LOCATIONS CASCADE CONSTRAINTS;
+
+DROP TABLE REGIONS CASCADE CONSTRAINTS;
+
+-- Zad 1 Rozwiązanie drugie
+BEGIN FOR table_name IN (
+    SELECT
+        table_name
+    FROM
+        user_tables
+) LOOP EXECUTE IMMEDIATE 'DROP TABLE ' || table_name.table_name || ' CASCADE CONSTRAINTS';
+
+END LOOP;
+
+END;
+
+-- Zad 2
+BEGIN FOR table_record IN (
+    SELECT
+        table_name
+    FROM
+        all_tables
+    WHERE
+        owner = 'HR'
+) LOOP DECLARE tabela_istnieje NUMBER;
+
+BEGIN
+SELECT
+    COUNT(*) INTO tabela_istnieje
+FROM
+    all_tables
+WHERE
+    owner = 'JURCZYKP'
+    AND table_name = table_record.table_name;
+
+IF tabela_istnieje = 0 THEN EXECUTE IMMEDIATE 'CREATE TABLE ' || table_record.table_name || ' AS SELECT * FROM HR.' || table_record.table_name;
+
+END IF;
+
+END;
+
+END LOOP;
+
+END;
+
+-- Zad 3
+-- Pkt 1
+SELECT
+    CONCAT(LAST_NAME, SALARY) AS ZAROBKI
+FROM
+    EMPLOYEES
+WHERE
+    DEPARTMENT_ID BETWEEN 20
+    and 50
+    AND SALARY BETWEEN 2000
+    and 7000
+ORDER BY
+    LAST_NAME;
+
+-- Pkt 2
+DECLARE defined_by_user VARCHAR2(50);
+
+query_string VARCHAR2(4000);
+
+cursor_results SYS_REFCURSOR;
+
+hire_date DATE;
+
+last_name VARCHAR2(50);
+
+dynamic_column_value VARCHAR2(50);
+
+BEGIN defined_by_user := '&user_column';
+
+query_string := 'SELECT HIRE_DATE, LAST_NAME, ' || defined_by_user || ' 
+                     FROM EMPLOYEES 
+                     WHERE MANAGER_ID IS NOT NULL 
+                     AND EXTRACT(YEAR FROM HIRE_DATE) = 2005 
+                     ORDER BY ' || defined_by_user;
+
+OPEN cursor_results FOR query_string;
+
+LOOP FETCH cursor_results INTO hire_date,
+last_name,
+dynamic_column_value;
+
+EXIT
+WHEN cursor_results % NOTFOUND;
+
+DBMS_OUTPUT.PUT_LINE(
+    'Data zatrudnienia: ' || hire_date || ', Nazwisko: ' || last_name || ', Kolumna (' || defined_by_user || '): ' || dynamic_column_value
+);
+
+END LOOP;
+
+CLOSE cursor_results;
+
+END;
+
+-- Pkt 3
+SELECT
+    CONCAT(CONCAT(FIRST_NAME, ' '), LAST_NAME) AS FULL_NAME,
+    SALARY,
+    PHONE_NUMBER
+FROM
+    EMPLOYEES
+WHERE
+    SUBSTR(LAST_NAME, 3, 1) = 'e'
+    AND FIRST_NAME LIKE '%' || '&user_name_part' || '%'
+ORDER BY
+    FULL_NAME DESC,
+    SALARY ASC;
+
+-- Pkt 4
+SELECT
+    FIRST_NAME,
+    LAST_NAME,
+    CASE
+        WHEN ROUND(MONTHS_BETWEEN(SYSDATE, HIRE_DATE)) < 150 THEN SALARY * 0.1
+        WHEN ROUND(MONTHS_BETWEEN(SYSDATE, HIRE_DATE)) BETWEEN 150
+        and 200 THEN SALARY * 0.2
+        ELSE SALARY * 0.3
+    END AS WYSOKOSC_DODATKU,
+    ROUND(MONTHS_BETWEEN(SYSDATE, HIRE_DATE)) AS MONTHS_SINCE_HIRE
+FROM
+    EMPLOYEES
+ORDER BY
+    MONTHS_SINCE_HIRE;
+
+-- Pkt 5
+SELECT
+    ROUND(SUM(SALARY)) AS SUMA_ZAROBKOW,
+    ROUND(AVG(SALARY)) AS SREDNIA_ZAROBKOW,
+    DEPARTMENT_ID
+FROM
+    EMPLOYEES
+WHERE
+    SALARY > 5000
+GROUP BY
+    DEPARTMENT_ID;
+
+-- Pkt 6
+SELECT
+    e.LAST_NAME,
+    e.DEPARTMENT_ID,
+    d.DEPARTMENT_NAME,
+    e.JOB_ID
+FROM
+    EMPLOYEES e
+    JOIN DEPARTMENTS d ON e.DEPARTMENT_ID = d.DEPARTMENT_ID
+    JOIN LOCATIONS l ON d.LOCATION_ID = l.LOCATION_ID
+    JOIN JOBS j ON e.JOB_ID = j.JOB_ID
+WHERE
+    l.CITY = 'Toronto';
+
+-- Pkt 7
+SELECT
+    E2.FIRST_NAME,
+    E2.LAST_NAME
+FROM
+    EMPLOYEES E1
+    INNER JOIN EMPLOYEES E2 on E2.MANAGER_ID = E1.EMPLOYEE_ID
+WHERE
+    E1.FIRST_NAME = 'Jennifer';
+
+-- Pkt 8
+SELECT
+    *
+FROM
+    DEPARTMENTS
+    LEFT JOIN EMPLOYEES on DEPARTMENTS.DEPARTMENT_ID = EMPLOYEES.DEPARTMENT_ID
+WHERE
+    EMPLOYEES.DEPARTMENT_ID IS NULL;
+
+-- Pkt 9
+-- Zrobione w zad2 pętlą
+-- Pkt 10
+SELECT
+    EMPLOYEES.FIRST_NAME,
+    EMPLOYEES.LAST_NAME,
+    EMPLOYEES.JOB_ID,
+    DEPARTMENTS.DEPARTMENT_NAME,
+    EMPLOYEES.SALARY,
+    (
+        SELECT
+            JOB_GRADES.GRADE
+        FROM
+            JOB_GRADES
+        WHERE
+            EMPLOYEES.SALARY BETWEEN JOB_GRADES.MIN_SALARY
+            AND JOB_GRADES.MAX_SALARY
+    ) as GRADE
+FROM
+    EMPLOYEES
+    JOIN DEPARTMENTS ON EMPLOYEES.DEPARTMENT_ID = DEPARTMENTS.DEPARTMENT_ID -- Pkt 11
+SELECT
+    EMPLOYEES.FIRST_NAME,
+    EMPLOYEES.LAST_NAME,
+    EMPLOYEES.SALARY
+FROM
+    EMPLOYEES
+WHERE
+    EMPLOYEES.SALARY >= (
+        SELECT
+            ROUND(AVG(SALARY))
+        FROM
+            EMPLOYEES
+    )
+ORDER BY
+    EMPLOYEES.SALARY DESC;
+
+-- Pkt 12
+SELECT
+    EMPLOYEES.EMPLOYEE_ID,
+    EMPLOYEES.FIRST_NAME,
+    EMPLOYEES.LAST_NAME
+FROM
+    EMPLOYEES
+WHERE
+    EMPLOYEES.DEPARTMENT_ID IN (
+        SELECT
+            DISTINCT(DEPARTMENTS.DEPARTMENT_ID)
+        FROM
+            DEPARTMENTS
+            INNER JOIN EMPLOYEES EMPLOYEES on DEPARTMENTS.DEPARTMENT_ID = EMPLOYEES.DEPARTMENT_ID
+        WHERE
+            EMPLOYEES.LAST_NAME LIKE '%u%'
+    );
