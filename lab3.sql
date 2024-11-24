@@ -222,4 +222,113 @@ END delete_job_row;
 EXEC delete_job_row('IT_PROG');
 
 -- d
+create
+or replace PROCEDURE pracownik_info(
+    p_employee_id EMPLOYEES.EMPLOYEE_ID % TYPE,
+    v_nazwisko OUT EMPLOYEES.LAST_NAME % TYPE,
+    v_zarobki OUT EMPLOYEES.SALARY % TYPE
+) AS BEGIN
+SELECT
+    EMPLOYEES.LAST_NAME,
+    EMPLOYEES.SALARY INTO v_nazwisko,
+    v_zarobki
+FROM
+    EMPLOYEES
+WHERE
+    EMPLOYEES.EMPLOYEE_ID = p_employee_id;
+
+EXCEPTION
+WHEN NO_DATA_FOUND THEN DBMS_OUTPUT.PUT_LINE('Brak pracownika o podanym ID.');
+
+WHEN OTHERS THEN DBMS_OUTPUT.PUT_LINE(
+    'B³¹d podczas pobierania danych pracownika: ' || SQLERRM
+);
+
+END pracownik_info;
+
+CREATE
+OR REPLACE PROCEDURE wyswietl_info_pracownika(p_employee_id EMPLOYEES.EMPLOYEE_ID % TYPE) AS v_zarobki EMPLOYEES.SALARY % TYPE;
+
+v_nazwisko EMPLOYEES.LAST_NAME % TYPE;
+
+BEGIN pracownik_info(p_employee_id, v_nazwisko, v_zarobki);
+
+IF v_zarobki IS NOT NULL THEN DBMS_OUTPUT.PUT_LINE(
+    'Pracownik: ' || v_nazwisko || ', Zarobki: ' || TO_CHAR(v_zarobki)
+);
+
+ELSE DBMS_OUTPUT.PUT_LINE(
+    'Nie znaleziono danych dla pracownika o ID ' || TO_CHAR(p_employee_id)
+);
+
+END IF;
+
+END wyswietl_info_pracownika;
+
+BEGIN wyswietl_info_pracownika(200);
+
+END;
+
 -- e
+CREATE
+OR REPLACE PROCEDURE dodaj_pracownika(
+    p_first_name IN EMPLOYEES.FIRST_NAME % TYPE DEFAULT NULL,
+    p_last_name IN EMPLOYEES.LAST_NAME % TYPE,
+    p_email IN EMPLOYEES.EMAIL % TYPE,
+    p_phone_number IN EMPLOYEES.PHONE_NUMBER % TYPE DEFAULT NULL,
+    p_hire_date IN EMPLOYEES.HIRE_DATE % TYPE DEFAULT SYSDATE,
+    p_job_id IN EMPLOYEES.JOB_ID % TYPE DEFAULT 'IT_PROG',
+    p_salary IN EMPLOYEES.SALARY % TYPE DEFAULT 1000,
+    p_commision_pct IN EMPLOYEES.COMMISSION_PCT % TYPE DEFAULT NULL,
+    p_manager_id IN EMPLOYEES.MANAGER_ID % TYPE DEFAULT NULL,
+    p_department_id IN EMPLOYEES.DEPARTMENT_ID % TYPE DEFAULT NULL
+) AS v_pracownik_id EMPLOYEES.EMPLOYEE_ID % TYPE;
+
+BEGIN
+SELECT
+    (MAX(employee_id) + 1) INTO v_pracownik_id
+FROM
+    employees;
+
+IF p_salary > 20000 THEN DBMS_OUTPUT.PUT_LINE('Zbyt wysokie zarobki');
+
+RETURN;
+
+END IF;
+
+INSERT INTO
+    EMPLOYEES (
+        EMPLOYEE_ID,
+        FIRST_NAME,
+        LAST_NAME,
+        EMAIL,
+        PHONE_NUMBER,
+        HIRE_DATE,
+        JOB_ID,
+        SALARY,
+        COMMISSION_PCT,
+        MANAGER_ID,
+        DEPARTMENT_ID
+    )
+VALUES
+    (
+        v_pracownik_id,
+        p_first_name,
+        p_last_name,
+        p_email,
+        p_phone_number,
+        p_hire_date,
+        p_job_id,
+        p_salary,
+        p_commision_pct,
+        p_manager_id,
+        p_department_id
+    );
+
+DBMS_OUTPUT.PUT_LINE('Pracownik ' || p_last_name || ' został dodany.');
+
+END dodaj_pracownika;
+
+DECLARE BEGIN dodaj_pracownika('Patryk', 'Kozak', 'kozak@email.com');
+
+END;
