@@ -425,3 +425,114 @@ from
     jobs
 where
     job_id = '123';
+
+-- Paczki
+-- Zad 2
+CREATE
+OR REPLACE PACKAGE region_package AS PROCEDURE create_region(p_region_id NUMBER, p_region_name VARCHAR2);
+
+PROCEDURE update_region(p_region_id NUMBER, p_region_name VARCHAR2);
+
+PROCEDURE delete_region(p_region_id NUMBER);
+
+FUNCTION get_region_by_id(p_region_id NUMBER) RETURN VARCHAR2;
+
+FUNCTION get_all_regions RETURN SYS_REFCURSOR;
+
+END region_package;
+
+CREATE
+OR REPLACE PACKAGE BODY region_package AS PROCEDURE create_region(p_region_id NUMBER, p_region_name VARCHAR2) IS BEGIN
+INSERT INTO
+    REGIONS
+VALUES
+    (p_region_id, p_region_name);
+
+END;
+
+PROCEDURE update_region(p_region_id NUMBER, p_region_name VARCHAR2) IS BEGIN
+UPDATE
+    REGIONS
+SET
+    REGION_NAME = p_region_name
+WHERE
+    REGION_ID = p_region_id;
+
+END;
+
+PROCEDURE delete_region(p_region_id NUMBER) IS BEGIN
+DELETE FROM
+    REGIONS
+WHERE
+    REGION_ID = p_region_id;
+
+END;
+
+FUNCTION get_region_by_id(p_region_id NUMBER) RETURN VARCHAR2 IS BEGIN
+SELECT
+    REGION_NAME
+FROM
+    REGIONS
+WHERE
+    REGION_ID = p_region_id;
+
+END;
+
+FUNCTION get_all_regions RETURN SYS_REFCURSOR IS BEGIN RETURN CURSOR(
+    SELECT
+        *
+    FROM
+        REGIONS
+);
+
+END;
+
+END region_package;
+
+BEGIN region_package.create_region(101, 'Test Region');
+
+COMMIT;
+
+END;
+
+BEGIN region_package.update_region(101, 'Updated Test Region');
+
+COMMIT;
+
+END;
+
+DECLARE v_region_name VARCHAR2(25);
+
+BEGIN v_region_name := region_package.get_region_by_id(101);
+
+DBMS_OUTPUT.PUT_LINE(v_region_name);
+
+END;
+
+DECLARE v_cursor SYS_REFCURSOR;
+
+v_region_id NUMBER;
+
+v_region_name VARCHAR2(25);
+
+BEGIN v_cursor := region_package.get_all_regions;
+
+LOOP FETCH v_cursor INTO v_region_id,
+v_region_name;
+
+EXIT
+WHEN v_cursor % NOTFOUND;
+
+DBMS_OUTPUT.PUT_LINE(v_region_id || ' ' || v_region_name);
+
+END LOOP;
+
+CLOSE v_cursor;
+
+END;
+
+BEGIN region_package.delete_region(101);
+
+COMMIT;
+
+END;
