@@ -212,3 +212,193 @@ DBMS_OUTPUT.PUT_LINE('Liczba pracowników: ' || employee_count);
 DBMS_OUTPUT.PUT_LINE('Liczba departamentów: ' || department_count);
 
 END;
+
+-- Wyzwalacze
+-- Zad 1
+CREATE TABLE archiwum_departamentow (
+    id NUMBER,
+    nazwa VARCHAR2(100),
+    data_zamknięcia DATE,
+    ostatni_manager VARCHAR2(200)
+);
+
+CREATE
+OR REPLACE TRIGGER after_department_delete
+AFTER
+    DELETE ON departments FOR EACH ROW DECLARE v_nazwa_departamentu VARCHAR2(100);
+
+v_ostatni_manager VARCHAR2(200);
+
+BEGIN v_nazwa_departamentu := :OLD.department_name;
+
+SELECT
+    employees.first_name || ' ' || employees.last_name INTO v_ostatni_manager
+FROM
+    employees
+WHERE
+    employees.employee_id = :OLD.manager_id;
+
+INSERT INTO
+    archiwum_departamentow (id, nazwa, data_zamknięcia, ostatni_manager)
+VALUES
+    (
+        :OLD.department_id,
+        v_nazwa_departamentu,
+        SYSDATE,
+        v_ostatni_manager
+    );
+
+END after_department_delete;
+
+INSERT INTO
+    DEPARTMENTS
+VALUES
+    (2341, 'TEST', 100, 1000);
+
+SELECT
+    *
+FROM
+    DEPARTMENTS
+WHERE
+    department_id = 2341;
+
+SELECT
+    *
+FROM
+    archiwum_departamentow;
+
+DELETE FROM
+    DEPARTMENTS
+WHERE
+    department_id = 2341;
+
+SELECT
+    *
+FROM
+    archiwum_departamentow;
+
+-- Zad 2
+CREATE TABLE zlodziej (
+    id NUMBER,
+    user_name VARCHAR2(100),
+    czas_zmiany DATE
+);
+
+CREATE
+OR REPLACE TRIGGER check_salary_range BEFORE
+INSERT
+    OR
+UPDATE
+    OF salary ON EMPLOYEES FOR EACH ROW DECLARE PRAGMA AUTONOMOUS_TRANSACTION;
+
+v_employee_name VARCHAR2(200);
+
+BEGIN IF :NEW.salary < 2000
+OR :NEW.salary > 26000 THEN v_employee_name := :NEW.first_name || ' ' || :NEW.last_name;
+
+INSERT INTO
+    zlodziej (id, user_name, czas_zmiany)
+VALUES
+    (:NEW.EMPLOYEE_ID, v_employee_name, SYSDATE);
+
+COMMIT;
+
+RAISE_APPLICATION_ERROR(
+    -20003,
+    'Wynagrodzenie poza dozwolonym zakresem.'
+);
+
+END IF;
+
+END check_salary_range;
+
+UPDATE
+    EMPLOYEES
+SET
+    SALARY = 200000
+WHERE
+    EMPLOYEE_ID = 103;
+
+SELECT
+    *
+FROM
+    zlodziej;
+
+-- Zad 3
+CREATE SEQUENCE employee_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE
+OR REPLACE TRIGGER auto_increment_trigger BEFORE
+INSERT
+    ON employees FOR EACH ROW BEGIN IF :NEW.employee_id IS NULL THEN
+SELECT
+    employee_seq.NEXTVAL INTO :NEW.employee_id
+FROM
+    dual;
+
+END IF;
+
+END;
+
+INSERT INTO
+    EMPLOYEES (FIRST_NAME, LAST_NAME, EMAIL, JOB_ID, HIRE_DATE)
+VALUES
+    (
+        'test',
+        'testowo',
+        'test@testowo.com',
+        'AD_PRES',
+        CURRENT_DATE
+    );
+
+SELECT
+    *
+FROM
+    EMPLOYEES
+where
+    FIRST_NAME = 'test';
+
+-- Zad 4
+CREATE
+OR REPLACE TRIGGER blokada_operacji_na_job_grades BEFORE DELETE
+OR
+INSERT
+    OR
+UPDATE
+    ON JOB_GRADES BEGIN RAISE_APPLICATION_ERROR(
+        -20202,
+        'Operacje INSERT, UPDATE, DELETE na tabeli JOB_GRADES są zabronione.'
+    );
+
+END;
+
+INSERT INTO
+    JOB_GRADES (grade, min_salary, max_salary)
+VALUES
+    ('A', 2000, 4000);
+
+-- Zad 5
+CREATE
+OR REPLACE TRIGGER zachowaj_stare_wartosci_salary_jobs BEFORE
+UPDATE
+    OF min_salary,
+    max_salary ON jobs FOR EACH ROW BEGIN :NEW.min_salary := :OLD.min_salary;
+
+:NEW.max_salary := :OLD.max_salary;
+
+END;
+
+UPDATE
+    jobs
+SET
+    min_salary = 5000,
+    max_salary = 20000
+WHERE
+    job_id = '123';
+
+Select
+    *
+from
+    jobs
+where
+    job_id = '123'
