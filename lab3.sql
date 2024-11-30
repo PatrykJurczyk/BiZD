@@ -154,7 +154,44 @@ END LOOP;
 
 END;
 
--- Zad 9
+CREATE
+OR REPLACE PACKAGE procedure_package IS PROCEDURE add_job(
+    p_job_id JOBS.JOB_ID % TYPE,
+    p_job_title JOBS.JOB_TITLE % TYPE
+);
+
+PROCEDURE modify_job_title(
+    p_job_id JOBS.JOB_ID % TYPE,
+    p_job_title JOBS.JOB_TITLE % TYPE
+);
+
+PROCEDURE delete_job_row(p_job_id JOBS.JOB_ID % TYPE);
+
+PROCEDURE pracownik_info(
+    p_employee_id EMPLOYEES.EMPLOYEE_ID % TYPE,
+    v_nazwisko OUT EMPLOYEES.LAST_NAME % TYPE,
+    v_zarobki OUT EMPLOYEES.SALARY % TYPE
+);
+
+PROCEDURE wyswietl_info_pracownika(p_employee_id EMPLOYEES.EMPLOYEE_ID % TYPE);
+
+PROCEDURE dodaj_pracownika(
+    p_first_name IN EMPLOYEES.FIRST_NAME % TYPE DEFAULT NULL,
+    p_last_name IN EMPLOYEES.LAST_NAME % TYPE,
+    p_email IN EMPLOYEES.EMAIL % TYPE,
+    p_phone_number IN EMPLOYEES.PHONE_NUMBER % TYPE DEFAULT NULL,
+    p_hire_date IN EMPLOYEES.HIRE_DATE % TYPE DEFAULT SYSDATE,
+    p_job_id IN EMPLOYEES.JOB_ID % TYPE DEFAULT 'IT_PROG',
+    p_salary IN EMPLOYEES.SALARY % TYPE DEFAULT 1000,
+    p_commision_pct IN EMPLOYEES.COMMISSION_PCT % TYPE DEFAULT NULL,
+    p_manager_id IN EMPLOYEES.MANAGER_ID % TYPE DEFAULT NULL,
+    p_department_id IN EMPLOYEES.DEPARTMENT_ID % TYPE DEFAULT NULL
+);
+
+END procedure_package;
+
+CREATE
+OR REPLACE PACKAGE BODY procedure_package IS -- Zad 9
 -- a
 CREATE
 OR REPLACE PROCEDURE add_job(
@@ -332,3 +369,5 @@ END dodaj_pracownika;
 DECLARE BEGIN dodaj_pracownika('Patryk', 'Kozak', 'kozak@email.com');
 
 END;
+
+END procedure_package;

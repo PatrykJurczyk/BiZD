@@ -1,5 +1,26 @@
--- Funkcje
+-- Paczki
 -- Zad 1
+CREATE
+OR REPLACE PACKAGE function_package IS FUNCTION get_job_name(p_job_id IN JOBS.JOB_ID % TYPE) RETURN JOBS.JOB_TITLE % TYPE;
+
+FUNCTION get_avg_salary(p_job_id IN EMPLOYEES.EMPLOYEE_ID % TYPE) RETURN NUMBER;
+
+FUNCTION extract_area_code(p_phone_number IN EMPLOYEES.PHONE_NUMBER % TYPE) RETURN VARCHAR2;
+
+FUNCTION capitalize_first_and_last(input_str IN VARCHAR2) RETURN VARCHAR2;
+
+FUNCTION get_birth_date(input_str IN VARCHAR2) RETURN VARCHAR2;
+
+FUNCTION get_employee_and_department_count(
+    country_name IN VARCHAR2,
+    v_department_count OUT NUMBER
+) RETURN NUMBER;
+
+END function_package;
+
+-- Funkcje
+CREATE
+OR REPLACE PACKAGE BODY function_package IS -- Zad 1
 CREATE
 OR REPLACE FUNCTION get_job_name(p_job_id IN JOBS.JOB_ID % TYPE) RETURN JOBS.JOB_TITLE % TYPE IS v_job_name JOBS.JOB_TITLE % TYPE;
 
@@ -213,6 +234,8 @@ DBMS_OUTPUT.PUT_LINE('Liczba departamentów: ' || department_count);
 
 END;
 
+END function_package;
+
 -- Wyzwalacze
 -- Zad 1
 CREATE TABLE archiwum_departamentow (
@@ -401,4 +424,4 @@ Select
 from
     jobs
 where
-    job_id = '123'
+    job_id = '123';
