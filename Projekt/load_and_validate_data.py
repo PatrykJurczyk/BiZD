@@ -1,6 +1,7 @@
 import pandas as pd
 import oracledb
 import json
+import ast
 
 
 def create_db_connection():
@@ -55,7 +56,7 @@ def validate_property_data(data):
             valid_data.append(row)
         except Exception as e:
             errors.append(
-                {'Index': index, 'Error': str(e), 'Row': row.to_dict()})
+                {'Index': index, 'Table': 'property', 'Error': str(e), 'Row': row.to_dict()})
     return pd.DataFrame(valid_data), pd.DataFrame(errors)
 
 
@@ -86,7 +87,7 @@ def validate_client_data(data):
             valid_data.append(row)
         except Exception as e:
             errors.append(
-                {'Index': index, 'Error': str(e), 'Row': row.to_dict()})
+                {'Index': index, 'Table': 'client', 'Error': str(e), 'Row': row.to_dict()})
     return pd.DataFrame(valid_data), pd.DataFrame(errors)
 
 
@@ -119,7 +120,7 @@ def validate_worker_data(data):
             valid_data.append(row)
         except Exception as e:
             errors.append(
-                {'Index': index, 'Error': str(e), 'Row': row.to_dict()})
+                {'Index': index, 'Table': 'worker', 'Error': str(e), 'Row': row.to_dict()})
     return pd.DataFrame(valid_data), pd.DataFrame(errors)
 
 
@@ -192,6 +193,35 @@ def save_processed_data(processed_file_id, data_type, record_data, archived, con
         connection.rollback()
 
 
+def save_errors_to_db(errors, connection):
+    try:
+        cursor = connection.cursor()
+
+        for _, row in errors.iterrows():
+            if isinstance(row['Row'], str):
+                try:
+                    row['Row'] = ast.literal_eval(row['Row'])
+                except Exception as e:
+                    print(f"Błąd podczas konwersji Row na słownik: {e}")
+                    continue
+
+            error_message = row['Error']
+            row_data = json.dumps(row['Row'])
+
+            sql = """
+                INSERT INTO Validation_Error (table_name, row_data, error_message)
+                VALUES (:table_name, :row_data, :error_message)
+            """
+            cursor.execute(
+                sql, table_name=row['Table'], row_data=row_data, error_message=error_message)
+
+        connection.commit()
+        print(f"Błędy zapisane do tabeli Validation_Error.")
+    except oracledb.DatabaseError as e:
+        print(f"Błąd podczas zapisywania błędów do bazy: {e}")
+        connection.rollback()
+
+
 def main():
     worker_data, worker_errors = load_and_validate_workers()
     client_data, client_errors = load_and_validate_clients()
@@ -214,6 +244,13 @@ def main():
         save_to_db(client_data, 'Client', connection)
         save_processed_data(1, 'client', json.dumps(
             client_data.to_dict(orient='records')), 'no', connection)
+
+    if not worker_errors.empty:
+        save_errors_to_db(worker_errors, connection)
+    if not client_errors.empty:
+        save_errors_to_db(client_errors, connection)
+    if not property_errors.empty:
+        save_errors_to_db(property_errors, connection)
 
     valid_records = len(property_data) + len(worker_data) + len(client_data)
     invalid_records = len(property_errors) + \
