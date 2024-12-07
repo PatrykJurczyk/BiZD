@@ -2,6 +2,7 @@ import pandas as pd
 import oracledb
 import json
 
+
 def create_db_connection():
     try:
         connection = oracledb.connect(
@@ -220,28 +221,62 @@ def save_errors_to_db(errors, connection):
         connection.rollback()
 
 
-def main():
-    worker_data, worker_errors = load_and_validate_workers()
-    client_data, client_errors = load_and_validate_clients()
-    property_data, property_errors = load_and_validate_properties()
+def filter_existing_data(data, table_name, connection, unique_columns):
+    try:
+        cursor = connection.cursor()
 
+        placeholders = " AND ".join(
+            [f"{col} = :{col}" for col in unique_columns])
+        query = f"SELECT {', '.join(unique_columns)} FROM {table_name} WHERE {placeholders}"
+
+        existing_records = []
+        for _, row in data.iterrows():
+            params = {col: row[col] for col in unique_columns}
+            cursor.execute(query, params)
+            if cursor.fetchone():
+                existing_records.append(tuple(row[unique_columns]))
+
+        if existing_records:
+            data = data[~data[unique_columns].apply(
+                tuple, axis=1).isin(existing_records)]
+
+        print(
+            f"Znaleziono {len(existing_records)} istniejących rekordów. Dodamy {len(data)} nowych rekordów.")
+        return data
+    except Exception as e:
+        print(f"Błąd podczas filtrowania danych: {e}")
+        return data
+
+
+def main():
     connection = create_db_connection()
     if connection is None:
         print("Brak połączenia z bazą danych.")
         return
 
-    if not worker_data.empty:
-        save_to_db(worker_data, 'Worker', connection)
+    worker_data, worker_errors = load_and_validate_workers()
+    client_data, client_errors = load_and_validate_clients()
+    property_data, property_errors = load_and_validate_properties()
+
+    filtered_worker_data = filter_existing_data(
+        worker_data, "Worker", connection, unique_columns=["name", "surname", "role", "phone"])
+    filtered_client_data = filter_existing_data(
+        client_data, "Client", connection, unique_columns=["name", "surname", "phone"])
+    filtered_property_data = filter_existing_data(property_data, "Property", connection, unique_columns=[
+                                                  "type", "address", "area", "rooms", "sqm_price"])
+
+    if not filtered_worker_data.empty:
+        save_to_db(filtered_worker_data, 'Worker', connection)
         save_processed_data(1, 'worker', json.dumps(
-            worker_data.to_dict(orient='records')), 'no', connection)
-    if not property_data.empty:
-        save_to_db(property_data, 'Property', connection)
+            filtered_worker_data.to_dict(orient='records')), 'no', connection)
+    if not filtered_property_data.empty:
+        save_to_db(filtered_property_data, 'Property', connection)
         save_processed_data(1, 'property', json.dumps(
-            property_data.to_dict(orient='records')), 'no', connection)
-    if not client_data.empty:
-        save_to_db(client_data, 'Client', connection)
+            filtered_property_data.to_dict(orient='records')), 'no', connection)
+    if not filtered_client_data.empty:
+        save_to_db(filtered_client_data, 'Client', connection)
         save_processed_data(1, 'client', json.dumps(
-            client_data.to_dict(orient='records')), 'no', connection)
+            filtered_client_data.to_dict(orient='records')), 'no', connection)
 
     if not worker_errors.empty:
         save_errors_to_db(worker_errors, connection)
@@ -250,7 +285,8 @@ def main():
     if not property_errors.empty:
         save_errors_to_db(property_errors, connection)
 
-    valid_records = len(property_data) + len(worker_data) + len(client_data)
+    valid_records = len(filtered_property_data) + \
+        len(filtered_worker_data) + len(filtered_client_data)
     invalid_records = len(property_errors) + \
         len(worker_errors) + len(client_errors)
     total_records = valid_records + invalid_records
