@@ -1,0 +1,2 @@
+Index,Error,Row
+4,Niepoprawny typ nieruchomości,"{'type': 'invalid_type', 'address': 'Land Address 5', 'area': 156, 'rooms': 7, 'sqm_price': 11130.88, 'description': 'Description for land 5'}"
