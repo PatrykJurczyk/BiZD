@@ -51,8 +51,6 @@ CREATE TABLE Processed_Data (
     processed_file_id NUMBER NOT NULL,
     data_type VARCHAR2(20) NOT NULL CHECK (data_type IN ('property', 'client', 'transaction', 'worker')),
     record_data CLOB NOT NULL,
-    validation_status VARCHAR2(20) NOT NULL CHECK (validation_status IN ('valid', 'invalid')),
-    error_message CLOB,
     archived VARCHAR2(3) DEFAULT 'no' CHECK (archived IN ('yes', 'no')),
     timestamp TIMESTAMP DEFAULT SYSDATE,
     FOREIGN KEY (processed_file_id) REFERENCES Processed_File(ID)

@@ -6,7 +6,9 @@ import json
 def create_db_connection():
     try:
         connection = oracledb.connect(
-
+            user="jurczykp",
+            password="Admin141368",
+            dsn="213.184.8.44:1521/orcl"
         )
         print("Połączono z bazą danych.")
         return connection
@@ -167,15 +169,22 @@ def save_processed_file(file_name, total_records, valid_records, invalid_records
         connection.rollback()
 
 
-def save_processed_data(processed_file_id, data_type, record_data, validation_status, error_message, archived, connection):
+def save_processed_data(processed_file_id, data_type, record_data, archived, connection):
     try:
         cursor = connection.cursor()
+
+        if isinstance(record_data, str):
+            lob_record_data = connection.createlob(oracledb.DB_TYPE_CLOB)
+            lob_record_data.write(record_data)
+            record_data = lob_record_data
+
         sql = """
-            INSERT INTO Processed_Data (processed_file_id, data_type, record_data, validation_status, error_message, archived)
-            VALUES (:processed_file_id, :data_type, :record_data, :validation_status, :error_message, :archived)
+            INSERT INTO Processed_Data (processed_file_id, data_type, record_data, archived)
+            VALUES (:processed_file_id, :data_type, :record_data, :archived)
         """
-        cursor.execute(sql, processed_file_id=processed_file_id, data_type=data_type, record_data=record_data,
-                       validation_status=validation_status, error_message=error_message, archived=archived)
+        cursor.execute(sql, processed_file_id=processed_file_id,
+                       data_type=data_type, record_data=record_data, archived=archived)
+
         connection.commit()
         print(f"Informacje o przetworzonych danych zapisano do Processed_Data.")
     except oracledb.DatabaseError as e:
@@ -196,15 +205,15 @@ def main():
     if not worker_data.empty:
         save_to_db(worker_data, 'Worker', connection)
         save_processed_data(1, 'worker', json.dumps(
-            worker_data.to_dict(orient='records')), 'valid', '', 'no', connection)
+            worker_data.to_dict(orient='records')), 'no', connection)
     if not property_data.empty:
         save_to_db(property_data, 'Property', connection)
         save_processed_data(1, 'property', json.dumps(
-            property_data.to_dict(orient='records')), 'valid', '', 'no', connection)
+            property_data.to_dict(orient='records')), 'no', connection)
     if not client_data.empty:
         save_to_db(client_data, 'Client', connection)
         save_processed_data(1, 'client', json.dumps(
-            client_data.to_dict(orient='records')), 'valid', '', 'no', connection)
+            client_data.to_dict(orient='records')), 'no', connection)
 
     valid_records = len(property_data) + len(worker_data) + len(client_data)
     invalid_records = len(property_errors) + \
