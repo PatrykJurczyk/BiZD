@@ -1,8 +1,6 @@
 import pandas as pd
 import oracledb
 import json
-import ast
-
 
 def create_db_connection():
     try:
@@ -200,7 +198,7 @@ def save_errors_to_db(errors, connection):
         for _, row in errors.iterrows():
             if isinstance(row['Row'], str):
                 try:
-                    row['Row'] = ast.literal_eval(row['Row'])
+                    row['Row'] = json.loads(row['Row'])
                 except Exception as e:
                     print(f"Błąd podczas konwersji Row na słownik: {e}")
                     continue
