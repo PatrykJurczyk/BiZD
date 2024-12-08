@@ -1,8 +1,51 @@
--- ### 2. Procedury, funkcje, wyzwalacze obsługujące tabelę Worker ###
+-- 1. Funkcja validate_phone_number
+CREATE OR REPLACE FUNCTION validate_phone_number(
+    p_phone IN VARCHAR2
+) RETURN BOOLEAN AS
+BEGIN
+    IF LENGTH(p_phone) = 12 AND REGEXP_LIKE(p_phone, '^[0-9]{9,12}$') THEN
+        RETURN TRUE;
+    ELSE
+        RETURN FALSE;
+    END IF;
+END validate_phone_number;
+/
 
--- #### a. Dodawanie, usuwanie, aktualizacja rekordów ####
+-- 2. Funkcja validate_name_surname
+CREATE OR REPLACE FUNCTION validate_name_surname(
+    p_name IN VARCHAR2
+) RETURN BOOLEAN AS
+BEGIN
+    IF REGEXP_LIKE(p_name, '^[A-Za-z]+$') THEN
+        RETURN TRUE;
+    ELSE
+        RETURN FALSE;
+    END IF;
+END validate_name_surname;
+/
 
--- 1. Procedura dodająca nowego pracownika
+-- 3. Procedura validate_data
+CREATE OR REPLACE PROCEDURE validate_data(
+    p_name IN VARCHAR2,
+    p_surname IN VARCHAR2,
+    p_phone IN VARCHAR2
+) AS
+BEGIN
+    IF NOT validate_phone_number(p_phone) THEN
+        RAISE_APPLICATION_ERROR(-20002, 'Numer telefonu jest niepoprawny.');
+    END IF;
+
+    IF NOT validate_name_surname(p_name) THEN
+        RAISE_APPLICATION_ERROR(-20003, 'Imię zawiera niedozwolone znaki.');
+    END IF;
+
+    IF NOT validate_name_surname(p_surname) THEN
+        RAISE_APPLICATION_ERROR(-20004, 'Nazwisko zawiera niedozwolone znaki.');
+    END IF;
+END validate_data;
+/
+
+-- 4. Procedura add_worker
 CREATE OR REPLACE PROCEDURE add_worker(
     p_name IN VARCHAR2,
     p_surname IN VARCHAR2,
@@ -10,23 +53,15 @@ CREATE OR REPLACE PROCEDURE add_worker(
     p_phone IN VARCHAR2
 ) AS
 BEGIN
+    validate_data(p_name, p_surname, p_phone);
+
     INSERT INTO Worker (name, surname, role, phone)
     VALUES (p_name, p_surname, p_role, p_phone);
     COMMIT;
 END add_worker;
 /
 
--- 2. Procedura usuwająca pracownika
-CREATE OR REPLACE PROCEDURE delete_worker(
-    p_worker_id IN NUMBER
-) AS
-BEGIN
-    DELETE FROM Worker WHERE ID = p_worker_id;
-    COMMIT;
-END delete_worker;
-/
-
--- 3. Procedura aktualizująca dane pracownika
+-- 5. Procedura update_worker
 CREATE OR REPLACE PROCEDURE update_worker(
     p_worker_id IN NUMBER,
     p_name IN VARCHAR2,
@@ -35,6 +70,8 @@ CREATE OR REPLACE PROCEDURE update_worker(
     p_phone IN VARCHAR2
 ) AS
 BEGIN
+    validate_data(p_name, p_surname, p_phone);
+
     UPDATE Worker
     SET name = p_name,
         surname = p_surname,
@@ -45,67 +82,91 @@ BEGIN
 END update_worker;
 /
 
--- #### b. Archiwizacja usuniętych danych ####
+-- 6. Procedura delete_worker
+CREATE OR REPLACE PROCEDURE delete_worker(
+    p_worker_id IN NUMBER
+) AS
+BEGIN
+    DELETE FROM Worker WHERE ID = p_worker_id;
+    COMMIT;
+END delete_worker;
+/
 
--- Wyzwalacz do archiwizacji danych przed usunięciem z tabeli Worker
+-- 7. Wyzwalacz archive_worker_before_delete
 CREATE OR REPLACE TRIGGER archive_worker_before_delete
 BEFORE DELETE ON Worker
 FOR EACH ROW
 DECLARE
     v_record_data CLOB;
 BEGIN
-    -- Przygotowanie danych w formacie JSON do archiwizacji
     v_record_data := '{"ID": "' || :OLD.ID || '", "name": "' || :OLD.name || '", "surname": "' || :OLD.surname || '", "role": "' || :OLD.role || '", "phone": "' || :OLD.phone || '"}';
     INSERT INTO Processed_Data (processed_file_id, data_type, record_data, archived)
     VALUES (NULL, 'worker', v_record_data, 'yes');
 END archive_worker_before_delete;
 /
 
--- #### c. Logowanie informacji do tabeli ####
-
--- Procedura logująca operacje na danych todo to chyba do poprawy
-CREATE OR REPLACE PROCEDURE log_worker_operation(
-    p_operation IN VARCHAR2,
-    p_worker_id IN NUMBER,
-    p_message IN VARCHAR2
-) AS
+-- 8. Wyzwalacz log_worker_operations
+CREATE OR REPLACE TRIGGER log_worker_operations
+AFTER INSERT OR UPDATE OR DELETE ON Worker
+FOR EACH ROW
+DECLARE
+    v_operation_type VARCHAR2(20);
+    v_message VARCHAR2(255);
 BEGIN
-    INSERT INTO Validation_Error (table_name, row_data, error_message)
-    VALUES ('Worker', '{"worker_id": "' || p_worker_id || '"}', p_message || ' (' || p_operation || ')');
-    COMMIT;
-END log_worker_operation;
+    IF INSERTING THEN
+        v_operation_type := 'INSERT';
+        v_message := 'Dodano nowego pracownika.';
+    ELSIF UPDATING THEN
+        v_operation_type := 'UPDATE';
+        v_message := 'Zaktualizowano dane pracownika.';
+    ELSIF DELETING THEN
+        v_operation_type := 'DELETE';
+        v_message := 'Usunięto pracownika.';
+    END IF;
+
+    INSERT INTO Operation_Log (table_name, record_id, operation_type, operation_message)
+    VALUES ('Worker', NVL(:NEW.ID, :OLD.ID), v_operation_type, v_message);
+END log_worker_operations;
 /
 
--- #### d. Obsługa wyjątków ####
-
--- Procedura dodająca nowego pracownika z obsługą wyjątków
-CREATE OR REPLACE PROCEDURE add_worker_with_exceptions(
+-- 9. Procedura add_worker_with_exceptions
+create or replace PROCEDURE add_worker_with_exceptions(
     p_name IN VARCHAR2,
     p_surname IN VARCHAR2,
     p_role IN VARCHAR2,
     p_phone IN VARCHAR2
 ) AS
 BEGIN
-    -- Sprawdzanie wymaganych pól
     IF p_name IS NULL OR p_surname IS NULL THEN
         RAISE_APPLICATION_ERROR(-20001, 'Imię i nazwisko są wymagane.');
     END IF;
 
-    -- Wstawienie rekordu
     INSERT INTO Worker (name, surname, role, phone)
     VALUES (p_name, p_surname, p_role, p_phone);
     COMMIT;
+
 EXCEPTION
     WHEN OTHERS THEN
         ROLLBACK;
-        log_worker_operation('ADD', NULL, 'Błąd podczas dodawania pracownika: ' || SQLERRM);
+
+        DECLARE
+            v_error_message VARCHAR2(255);
+            v_row_data CLOB;
+        BEGIN
+            v_error_message := 'Błąd podczas dodawania pracownika: ' || SQLERRM;
+
+            v_row_data := TO_CLOB('{"name": "' || p_name || '", "surname": "' || p_surname || '", "role": "' || p_role || '", "phone": "' || p_phone || '"}');
+
+            INSERT INTO Validation_Error (table_name, row_data, error_message)
+            VALUES ('Worker', v_row_data, v_error_message);
+            COMMIT;
+        END;
+
         RAISE;
 END add_worker_with_exceptions;
 /
 
--- #### e. Procedury, funkcje z parametrami i funkcje okienkowe ####
-
--- Funkcja zwracająca liczbę pracowników według roli z parametrem domyślnym
+-- 10. Funkcja count_workers_by_role
 CREATE OR REPLACE FUNCTION count_workers_by_role(
     p_role IN VARCHAR2 DEFAULT 'broker'
 ) RETURN NUMBER AS
@@ -116,74 +177,13 @@ BEGIN
 END count_workers_by_role;
 /
 
--- Funkcja okienkowa: najstarszy pracownik na każdym stanowisku
-CREATE OR REPLACE FUNCTION oldest_worker_by_role() RETURN SYS_REFCURSOR AS
-    v_cursor SYS_REFCURSOR;
-BEGIN
-    OPEN v_cursor FOR
-    SELECT role, name, surname, phone
-    FROM (
-        SELECT role, name, surname, phone,
-               RANK() OVER (PARTITION BY role ORDER BY ID ASC) AS rnk
-        FROM Worker
-    ) WHERE rnk = 1;
-    RETURN v_cursor;
-END oldest_worker_by_role;
-/
+-- Wywołanie 
 
--- #### f. Sprawdzanie poprawności dodawanych danych ####
-
--- Funkcja walidująca numer telefonu
-CREATE OR REPLACE FUNCTION validate_phone_number(
-    p_phone IN VARCHAR2
-) RETURN BOOLEAN AS
-BEGIN
-    IF LENGTH(p_phone) = 12 AND REGEXP_LIKE(p_phone, '^[0-9]{12}$') THEN
-        RETURN TRUE;
-    ELSE
-        RETURN FALSE;
-    END IF;
-END validate_phone_number;
-/
-
--- Funkcja walidująca imię i nazwisko (same litery)
-CREATE OR REPLACE FUNCTION validate_name(
-    p_name IN VARCHAR2
-) RETURN BOOLEAN AS
-BEGIN
-    IF REGEXP_LIKE(p_name, '^[A-Za-z]+$') THEN
-        RETURN TRUE;
-    ELSE
-        RETURN FALSE;
-    END IF;
-END validate_name;
-/
-
--- Procedura dodająca pracownika z walidacją
-CREATE OR REPLACE PROCEDURE add_worker_with_validation(
-    p_name IN VARCHAR2,
-    p_surname IN VARCHAR2,
-    p_role IN VARCHAR2,
-    p_phone IN VARCHAR2
-) AS
-BEGIN
-    -- Walidacja numeru telefonu
-    IF NOT validate_phone_number(p_phone) THEN
-        RAISE_APPLICATION_ERROR(-20002, 'Numer telefonu jest niepoprawny.');
-    END IF;
-
-    -- Walidacja imienia i nazwiska
-    IF NOT validate_name(p_name) THEN
-        RAISE_APPLICATION_ERROR(-20003, 'Imię zawiera niedozwolone znaki.');
-    END IF;
-
-    IF NOT validate_name(p_surname) THEN
-        RAISE_APPLICATION_ERROR(-20004, 'Nazwisko zawiera niedozwolone znaki.');
-    END IF;
-
-    -- Dodanie rekordu po walidacji
-    INSERT INTO Worker (name, surname, role, phone)
-    VALUES (p_name, p_surname, p_role, p_phone);
-    COMMIT;
-END add_worker_with_validation;
-/
+SELECT validate_phone_number('123456789') FROM dual;
+SELECT validate_name_surname('Jan') FROM dual;
+EXEC validate_data('Jan', 'Kowalski', '123456789');
+EXEC add_worker('Jan', 'Kowalski', 'manager', '123456789');
+EXEC update_worker(1, 'Jan', 'Brzęczyszczykiewicz', 'manager', '123456789');
+EXEC delete_worker(1);
+EXEC add_worker_with_exceptions('Jan1', 'Kowalski', 'broker', '123456789');
+SELECT count_workers_by_role('manager') FROM dual;
