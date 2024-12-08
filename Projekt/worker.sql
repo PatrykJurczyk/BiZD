@@ -137,8 +137,8 @@ create or replace PROCEDURE add_worker_with_exceptions(
     p_phone IN VARCHAR2
 ) AS
 BEGIN
-    IF p_name IS NULL OR p_surname IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20001, 'Imię i nazwisko są wymagane.');
+    IF p_name IS NULL OR p_surname IS NULL p_role IS NULL OR p_phone IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Imię, nazwisko, rola, telefon są wymagane.');
     END IF;
 
     INSERT INTO Worker (name, surname, role, phone)
