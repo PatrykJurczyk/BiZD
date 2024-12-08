@@ -35,19 +35,15 @@ BEGIN
 
     INSERT INTO Transaction (property_id, client_id, worker_id, final_price, status_transakcji)
     VALUES (p_property_id, p_client_id, p_worker_id, p_final_price, v_status_transakcji);
-    COMMIT;
 
     DELETE FROM Property WHERE ID = p_property_id;
-    COMMIT;
 
     INSERT INTO Operation_Log (table_name, record_id, operation_type, operation_message)
     VALUES ('Transaction', p_property_id, 'INSERT', 'Zakończono zakup nieruchomości.');
-    COMMIT;
 
 EXCEPTION
     WHEN OTHERS THEN
         ROLLBACK;
         RAISE;
 END buy_house;
-
 /
