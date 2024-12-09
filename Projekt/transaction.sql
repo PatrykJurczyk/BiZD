@@ -29,14 +29,29 @@ CREATE OR REPLACE PROCEDURE add_transaction(
     p_property_id IN NUMBER,
     p_client_id IN NUMBER,
     p_worker_id IN NUMBER,
-    p_final_price IN FLOAT,
+    p_final_price IN FLOAT DEFAULT NULL,
     p_status_transakcji IN VARCHAR2
 ) AS
+    v_area FLOAT;
+    v_sqm_price FLOAT;
+    v_computed_final_price FLOAT;
 BEGIN
-    validate_transaction_data(p_status_transakcji, p_final_price);
+    IF p_final_price IS NULL THEN
+        SELECT area, sqm_price
+        INTO v_area, v_sqm_price
+        FROM Property
+        WHERE ID = p_property_id;
+
+        v_computed_final_price := v_area * v_sqm_price;
+    ELSE
+        v_computed_final_price := p_final_price;
+    END IF;
+
+    validate_transaction_data(p_status_transakcji, v_computed_final_price);
 
     INSERT INTO Transaction (property_id, client_id, worker_id, final_price, status_transakcji)
-    VALUES (p_property_id, p_client_id, p_worker_id, p_final_price, p_status_transakcji);
+    VALUES (p_property_id, p_client_id, p_worker_id, v_computed_final_price, p_status_transakcji);
+
     COMMIT;
 END add_transaction;
 /

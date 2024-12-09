@@ -30,7 +30,7 @@ CREATE TABLE Transaction (
     client_id NUMBER NOT NULL,
     worker_id NUMBER NOT NULL,
     transaction_date TIMESTAMP DEFAULT SYSDATE,
-    final_price FLOAT NOT NULL,
+    final_price FLOAT,
     status_transakcji VARCHAR2(20) NOT NULL CHECK (status_transakcji IN ('started', 'completed', 'cancelled')),
     FOREIGN KEY (property_id) REFERENCES Property(ID),
     FOREIGN KEY (client_id) REFERENCES Client(ID),

@@ -2,7 +2,7 @@ CREATE OR REPLACE PROCEDURE buy_house(
     p_property_id IN NUMBER,
     p_client_id IN NUMBER,
     p_worker_id IN NUMBER,
-    p_final_price IN FLOAT
+    p_final_price IN FLOAT DEFAULT NULL
 ) AS
     v_status_transakcji VARCHAR2(20) := 'completed';
     v_property_exists NUMBER;
@@ -36,6 +36,7 @@ BEGIN
     INSERT INTO Transaction (property_id, client_id, worker_id, final_price, status_transakcji)
     VALUES (p_property_id, p_client_id, p_worker_id, p_final_price, v_status_transakcji);
 
+    DELETE FROM Transaction WHERE property_id = p_property_id;
     DELETE FROM Property WHERE ID = p_property_id;
 
     INSERT INTO Operation_Log (table_name, record_id, operation_type, operation_message)
