@@ -3,7 +3,7 @@ CREATE OR REPLACE FUNCTION validate_phone_number(
     p_phone IN VARCHAR2
 ) RETURN BOOLEAN AS
 BEGIN
-    IF LENGTH(p_phone) = 12 AND REGEXP_LIKE(p_phone, '^[0-9]{9,12}$') THEN
+    IF REGEXP_LIKE(p_phone, '^[0-9]{9,12}$') THEN
         RETURN TRUE;
     ELSE
         RETURN FALSE;
@@ -137,7 +137,7 @@ create or replace PROCEDURE add_worker_with_exceptions(
     p_phone IN VARCHAR2
 ) AS
 BEGIN
-    IF p_name IS NULL OR p_surname IS NULL p_role IS NULL OR p_phone IS NULL THEN
+    IF p_name IS NULL OR p_surname IS NULL OR p_role IS NULL OR p_phone IS NULL THEN
         RAISE_APPLICATION_ERROR(-20001, 'Imię, nazwisko, rola, telefon są wymagane.');
     END IF;
 

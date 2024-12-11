@@ -267,15 +267,15 @@ def main():
 
     if not filtered_worker_data.empty:
         save_to_db(filtered_worker_data, 'Worker', connection)
-        save_processed_data(1, 'worker', json.dumps(
+        save_processed_data('final_data_workers', 'worker', json.dumps(
             filtered_worker_data.to_dict(orient='records')), 'no', connection)
     if not filtered_property_data.empty:
         save_to_db(filtered_property_data, 'Property', connection)
-        save_processed_data(1, 'property', json.dumps(
+        save_processed_data('final_data_property', 'property', json.dumps(
             filtered_property_data.to_dict(orient='records')), 'no', connection)
     if not filtered_client_data.empty:
         save_to_db(filtered_client_data, 'Client', connection)
-        save_processed_data(1, 'client', json.dumps(
+        save_processed_data('final_data_client', 'client', json.dumps(
             filtered_client_data.to_dict(orient='records')), 'no', connection)
 
     if not worker_errors.empty:
